@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useRef, type DragEvent, type ChangeEvent } from "react"
-import { Upload, X, FileText, ImageIcon, File } from "lucide-react"
+import { Upload, X, FileText, ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
 type FileWithPreview = {
@@ -17,7 +18,6 @@ interface FileUploadDropzoneProps {
   onFilesAdded?: (files: File[]) => void
   maxFiles?: number
   maxSize?: number // in MB
-  accept?: string
   className?: string
   disabled?: boolean
 }
@@ -26,7 +26,6 @@ export function FileUploadDropzone({
   onFilesAdded,
   maxFiles = 5,
   maxSize = 10, // 10MB
-  accept = "*",
   className,
   disabled = false,
 }: FileUploadDropzoneProps) {
@@ -47,30 +46,48 @@ export function FileUploadDropzone({
     setIsDragging(false)
   }
 
+  const isValidFileType = (file: File): boolean => {
+    // Accept only PDF and image files
+    const validTypes = ["application/pdf", "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"]
+    return validTypes.includes(file.type)
+  }
+
   const processFiles = (fileList: FileList | null) => {
     if (!fileList) return
 
     const newFiles: File[] = []
+    const invalidFiles: string[] = []
 
     Array.from(fileList).forEach((file) => {
-      // Check file size
-      if (file.size > maxSize * 1024 * 1024) {
-        alert(`File ${file.name} is too large. Max size is ${maxSize}MB.`)
+      // Check file type
+      if (!isValidFileType(file)) {
+        invalidFiles.push(file.name)
         return
       }
 
-      // Check file type if accept is specified
-      if (accept !== "*" && !file.type.match(accept.replace(/\*/g, ".*"))) {
-        alert(`File ${file.name} is not an accepted file type.`)
+      // Check file size
+      if (file.size > maxSize * 1024 * 1024) {
+        toast.error( "File too large", {
+          description: `${file.name} exceeds the maximum size of ${maxSize}MB.`
+        })
         return
       }
 
       newFiles.push(file)
     })
 
+    // Show error for invalid file types
+    if (invalidFiles.length > 0) {
+      toast.error("Invalid file type",{
+        description: `${invalidFiles.join(", ")} ${invalidFiles.length === 1 ? "is" : "are"} not a PDF or image file.`
+      })
+    }
+
     // Check max files
     if (files.length + newFiles.length > maxFiles) {
-      alert(`You can only upload a maximum of ${maxFiles} files.`)
+      toast.error("Too many files", {
+        description: `You can only upload a maximum of ${maxFiles} files.`
+      })
       return
     }
 
@@ -103,7 +120,7 @@ export function FileUploadDropzone({
     })
 
     // Call the callback with the new files
-    if (onFilesAdded) {
+    if (onFilesAdded && newFiles.length > 0) {
       onFilesAdded(newFiles)
     }
   }
@@ -133,6 +150,10 @@ export function FileUploadDropzone({
       if (progress >= 100) {
         progress = 100
         clearInterval(interval)
+
+        toast.success("Upload complete", {
+          description: "Your file has been successfully uploaded.",
+        })
       }
 
       setFiles((prevFiles) => prevFiles.map((f) => (f.id === fileId ? { ...f, progress } : f)))
@@ -146,10 +167,8 @@ export function FileUploadDropzone({
   const getFileIcon = (file: File) => {
     if (file.type.startsWith("image/")) {
       return <ImageIcon className="h-6 w-6 text-muted-foreground" />
-    } else if (file.type.includes("pdf")) {
-      return <FileText className="h-6 w-6 text-muted-foreground" />
     } else {
-      return <File className="h-6 w-6 text-muted-foreground" />
+      return <FileText className="h-6 w-6 text-muted-foreground" />
     }
   }
 
@@ -157,8 +176,8 @@ export function FileUploadDropzone({
     <div className={cn("space-y-4", className)}>
       <div
         className={cn(
-          "relative flex flex-col items-center justify-center rounded-lg border border-dashed p-6 transition-colors",
-          isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25",
+          "relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-all",
+          isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-muted-foreground/50",
           disabled && "cursor-not-allowed opacity-60",
           className,
         )}
@@ -167,11 +186,13 @@ export function FileUploadDropzone({
         onDrop={handleDrop}
       >
         <div className="flex flex-col items-center justify-center text-center">
-          <Upload className="h-10 w-10 text-muted-foreground" />
+          <Upload
+            className={cn("h-10 w-10 transition-colors", isDragging ? "text-primary" : "text-muted-foreground")}
+          />
           <h3 className="mt-2 text-lg font-semibold">Drag & drop files here</h3>
           <p className="mt-1 text-sm text-muted-foreground">or click to browse files</p>
           <p className="mt-2 text-xs text-muted-foreground">
-            Max {maxFiles} files, up to {maxSize}MB each
+            PDF and images only, max {maxFiles} files, up to {maxSize}MB each
           </p>
           <Button
             variant="secondary"
@@ -185,10 +206,11 @@ export function FileUploadDropzone({
             ref={fileInputRef}
             type="file"
             multiple
-            accept={accept}
+            accept=".pdf,image/*"
             onChange={handleFileInputChange}
             className="sr-only"
             disabled={disabled}
+            aria-label="File upload"
           />
         </div>
       </div>
@@ -216,7 +238,10 @@ export function FileUploadDropzone({
                     )}
                     <div className="space-y-1">
                       <p className="text-sm font-medium leading-none">{file.file.name}</p>
-                      <p className="text-xs text-muted-foreground">{(file.file.size / 1024 / 1024).toFixed(2)}MB</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(file.file.size / 1024 / 1024).toFixed(2)}MB •
+                        {file.file.type.startsWith("image/") ? " Image" : " PDF"}
+                      </p>
                     </div>
                   </div>
                   <Button
@@ -224,13 +249,19 @@ export function FileUploadDropzone({
                     size="icon"
                     className="h-7 w-7"
                     onClick={() => removeFile(file.id)}
-                    disabled={disabled}
+                    disabled={disabled || file.progress < 100}
                   >
                     <X className="h-4 w-4" />
                     <span className="sr-only">Remove file</span>
                   </Button>
                 </div>
-                <Progress value={file.progress} className="mt-2 h-1" />
+                <div className="mt-2 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span>{file.progress < 100 ? "Uploading..." : "Complete"}</span>
+                    <span>{file.progress}%</span>
+                  </div>
+                  <Progress value={file.progress} className="h-1" />
+                </div>
               </li>
             ))}
           </ul>

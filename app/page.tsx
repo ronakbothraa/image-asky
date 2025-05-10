@@ -1,24 +1,33 @@
 "use client"
 import { FileUploadDropzone } from "@/components/Dropfiles"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { useState } from "react"
+
 
 export default function Home() {
+
+  const [ prompt, setPrompt ] = useState<string>("")
+  
+  async function handleSubmit() {
+    console.log("Prompt submitted:", prompt)
+  }
+
   return (
     <main className="container mx-auto py-10">
-      <div className="mx-auto max-w-2xl space-y-6">
+      <div className="mx-auto max-w-2xl space-y-6 flex flex-col">
         <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold">File Upload Example</h1>
-          <p className="text-muted-foreground">Drag and drop files to upload or click to browse</p>
         </div>
 
         <FileUploadDropzone
           onFilesAdded={(files) => {
             console.log("Files added:", files)
-            // Here you would typically upload the files to your server
           }}
-          accept="image/*,.pdf"
           maxFiles={5}
           maxSize={5}
         />
+        <Textarea placeholder="Ask Anything..." onChange={(e) => setPrompt(e.target.value)}/>
+        <Button onClick={handleSubmit} className="cursor-pointer ml-auto max-w-[100px]">submit</Button>
       </div>
     </main>
   )
