@@ -16,7 +16,6 @@ export async function generateContent(prompt: string, files: File[]) {
       const base64 = Buffer.from(fileBuffer).toString("base64");
       return {
         inlineData: {
-          name: file.name,
           mimeType: file.type,
           data: base64,
         },
