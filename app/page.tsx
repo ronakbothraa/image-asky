@@ -5,7 +5,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { generateContent } from "@/api/gemini";
 import { useEffect, useRef, useState } from "react";
 import { MessageSquare, ChevronDown, Check } from "lucide-react"; // Added ChevronDown and Check
-import { set } from "react-hook-form";
 
 export default function Home() {
   const [prompt, setPrompt] = useState<string>("");
